@@ -14,9 +14,12 @@
 %%%      of total peaks identified.  By default, verbose = false.
 %%% rImage (optional) = in verbose mode, if rImage exists, it is displayed
 %%%      to the user to aid in counting dots.
-%%% toUseRand (optional) = if true (default), additional MT minus-ends
+%%% toUseRandRPeaks (optional) = if true (default), additional MT minus-ends
 %%%      beyond the peaks in the red line scan are chosen randomly for increased
 %%%      accuracy.
+%%% rPeakCorr = Weight on Bernouli random variable that decides if a single 
+%%%      red dot is 1 or 2 MT minus-ends. As coverage increases, this value 
+%%%      should increase as well (up to 20 if necessary)
 %%%
 %%% Output Arguments
 %%% rPeaks = vector of pixel locations of every deteced minus-end in rLineScanF.
@@ -26,16 +29,16 @@
 %%%      2.  If toUseRand is FALSE, then numMTs is twice the length of rPeaks as a first
 %%%          order approximation of the true number of microtubules
 
-function [rPeaks,numMTs] = findPeaksWide(rLineScanF,tol,verbose,rImage,toUseRand,rPeakCorr)
+function [rPeaks,numMTs] = findPeaksWide(rLineScanF,rPeakTol,verbose,rImage,toUseRandRPeaks,rPeakCorr)
 
 if ~exist('verbose','var')
     verbose = true;
 end
-if ~exist('tol','var')
-    tol = 0.05;
+if ~exist('rPeakTol','var')
+    rPeakTol = 0.05;
 end
 if ~exist('toUseRand','var')
-    toUseRand= true;
+    toUseRandRPeaks= true;
 end
 if ~exist('rPeakCorr','var')
     rPeakCorr = 10;
@@ -66,7 +69,7 @@ for i = 1:length(pks)
     nearestMin2 = rLineScanF(nextValLoc);
     peakDiff = pks(i) - min(nearestMin1,nearestMin2);
     %%% Only consider this peak if it is sufficiently tall
-    if peakDiff > maxVal*tol
+    if peakDiff > maxVal*rPeakTol
         %%% How wide is the peak?  How likely is it to be two minus-ends?
         currSeg = rLineScanF(prevValLoc:nextValLoc);
         histVals =(1:length(currSeg))' .* currSeg;
@@ -80,7 +83,7 @@ for i = 1:length(pks)
         %%% Calculate a total probability
         alpha = rPeakCorr;
         beta = rPeakCorr;
-        if toUseRand
+        if toUseRandRPeaks
             probOfTwo = beta*sigProb^2+alpha*hProb^2;
         else
             probOfTwo = 0;

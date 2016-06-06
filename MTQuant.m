@@ -72,8 +72,9 @@ for i = 3:2:nargin
         else
             taskList = currVal;
         end
+    else
+        eval([currStr,' = currVal;']);
     end
-    eval([currStr,' = currVal;']);
 end
 
 %%% Individual Worm Analysis
@@ -100,7 +101,7 @@ if ~isempty(T)
     if toEM
         emT = cellfun(@emLoop,Tarray,'UniformOutput',false);
     else
-        emT = T;
+        emT = {T};
     end
     
     %%% Create a grouped file for easy comparison of populations
@@ -108,7 +109,10 @@ if ~isempty(T)
     
     %%% Write out the files
     [folder,name,ext] = fileparts(dataFileOut);
-    outputFiles = strcat(folder,'\',indivFileOut,name,writeArray,ext);
+    if ~isempty(folder)
+        folder = [folder,'\'];
+    end
+    outputFiles = strcat(folder,indivFileOut,name,writeArray,ext);
     cellfun(@writetable,emT,outputFiles);
     cellfun(@writetable,groupedT,strrep(outputFiles,'.csv','_grouped.csv'));
 end

@@ -45,6 +45,9 @@
 %%%      must be at least tol*max(rLineScanF).  A higher value for tol means
 %%%      fewer peaks are identified.  By default, tol = 0.01.
 %%% diPix = number of pixels by which to dilate the user-selected line
+%%% rPeakCorr = Weight on Bernouli random variable that decides if a single 
+%%%      red dot is 1 or 2 MT minus-ends. As coverage increases, this value 
+%%%      should increase as well (up to 20 if necessary)
 %%%
 %%% Output argument
 %%% T = table of org parameters for each worm.  See documentation for details.
@@ -67,13 +70,21 @@ function T = indivWormAnalysis(dirList,taskList,alpha1,alpha2,alpha3,indivFileOu
     toRateImgs,toAvg,toUseManualRPeaks,toPreproc,toUseRandRPeaks,numLineScans,roundLevel,...
     verbose,toUseBlurCorr,toUseHalfMTs,distThresh,rPeakTol,diPix,rPeakCorr)
 
-initFileNames = getInfNestedFileNames(dirList,['*',gFileExt]);
-
 taskStr = dec2bin(taskList,4);
 toMakeProj = str2num(taskStr(end));
 toMakeMask = str2num(taskStr(end-1));
 toMakeScan = str2num(taskStr(end-2));
 toCalcH = str2num(taskStr(end-3));
+
+if toMakeProj
+    initFileNames = getInfNestedFileNames(dirList,['*',gFileExt]);
+elseif toMakeMask
+    initFileNames = getInfNestedFileNames(dirList,'*_g_proj.tif');
+elseif toMakeScan
+    initFileNames = getInfNestedFileNames(dirList,['*',indivFileOut,'Mask.csv']);
+elseif toCalcH
+    initFileNames = getInfNestedFileNames(dirList,['*',indivFileOut,'LineScans.csv']);
+end    
 
 %%% Loop over all identified images
 for i = 1:length(initFileNames)
@@ -87,7 +98,7 @@ for i = 1:length(initFileNames)
     if toMakeProj
         projFile = makeProj(gFileIn,gFileExt,rFileExt);
     else
-        projFile = strrep(gFileIn,gFileExt,'_g_proj.tif');
+        projFile = gFileIn;
     end
     
     %%% Make the mask images
@@ -95,17 +106,17 @@ for i = 1:length(initFileNames)
     if toMakeMask
         [maskFile,rAligned] = makeMask(projFile,indivFileOut,numLineScans,diPix);
     else
-        %projFile = strrep(maskFile,[indivFileOut,'Mask.csv'],'g_proj.tif');
-        projFile = strrep(gFileIn,gFileExt,'_g_proj.tif');
-        maskFile = strrep(projFile,'g_proj.tif',[indivFileOut,'Mask.csv']);
+        %projFile = strrep(gFileIn,gFileExt,'_g_proj.tif');
+        maskFile = gFileIn;
+        projFile = strrep(maskFile,[indivFileOut,'Mask.csv'],'g_proj.tif');
     end
     
     %%% Make the line scans
     if toMakeScan
         lsFile = makeScan(maskFile,indivFileOut,toAvg,rAligned);
     else
-        projFile = strrep(gFileIn,gFileExt,'_g_proj.tif');
-        lsFile = strrep(projFile,'g_proj.tif',[indivFileOut,'LineScans.csv']);
+        lsFile = gFileIn;
+        projFile = strrep(lsFile,[indivFileOut,'LineScans.csv'],'g_proj.tif');
     end
     
     close all
@@ -132,7 +143,10 @@ usedFileNames(toRemove) = [];
 %%% Assign group numbers based on directory structure
 if toCalcH
     if length(dirList) == 1
-        [dirNums,nameFolds] = mapFilesToTopDir(dirList{1},usedFileNames);
+        [dirNums,~] = mapFilesToTopDir(dirList{1},usedFileNames);
+        if isempty(dirNums)
+            dirNums = ones(size(usedFileNames));
+        end
     else
         dirInds = cellfun(@(y) find(cellfun(@(x) ~isempty(x),strfind(usedFileNames,y))),dirList,'uniformoutput',false);
         dirNums = zeros(size(usedFileNames));
